@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>부산 버스 도착정보 조회</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #ffffff;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            text-align: center;
+            background: transparent;
+            padding: 30px;
+            border-radius: 0;
+            box-shadow: none;
+            width: 90%;
+            max-width: 500px;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        select, input[type="text"], button {
+            padding: 10px;
+            margin: 5px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            width: calc(100% - 120px);
+            max-width: 400px;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            width: 100px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .result-area {
+            margin-top: 20px;
+            text-align: left;
+        }
+
+        .bus-card {
+            background: #ffffff;
+            margin-bottom: 15px;
+            padding: 15px;
+            border-radius: 8px; /* 테두리 둥글게 적용 */
+            box-shadow: none;
+            position: relative;
+            border: 1px solid #ccc;
+        }
+
+        .bus-card h3 {
+            margin-top: 0;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .bus-card p {
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        .time-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .time-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #ffdb58;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .station-info {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-top: 10px;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+        }
+
+        .station-circle {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: #81c784;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 14px;
+            margin: 0 5px;
+            flex: 0 0 auto;
+        }
+
+        .current-station {
+            background-color: #f44336;
+        }
+
+        .bus-icon {
+            width: 30px;
+            height: 30px;
+            background-color: #007bff;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 16px;
+            content: '🚍';
+            line-height: 30px;
+        }
+
+        .icon-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: #2196f3;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            z-index: 1;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>부산 버스 도착정보 조회</h1>
+        <select id="searchType">
+            <option value="arsno">정류소 ARS번호</option>
+            <option value="busno">버스 번호</option>
+            <option value="stopname">정류소 이름</option>
+        </select>
+        <input type="text" id="searchInput" placeholder="검색어를 입력하세요">
+        <button onclick="searchBus()">검색</button>
+        <div id="result" class="result-area"></div>
+    </div>
+
+    <script>
+        const serviceKey = 'E3Eos3zdsfvVFG4mC5qYCljIz3vEjbgfHA0Xnyl4zU7eXYLNaN5Tf9%2FqBILOxzpU%2BMztJyUivBxXfKAnK3lg6w%3D%3D';
+
+        function searchBus() {
+            const searchType = document.getElementById('searchType').value;
+            const searchInput = document.getElementById('searchInput').value.trim();
+            const resultDiv = document.getElementById('result');
+
+            if (!searchInput) {
+                alert('검색어를 입력하세요!');
+                return;
+            }
+
+            resultDiv.innerHTML = '검색 중...';
+
+            let url = "";
+
+            if (searchType === 'arsno') {
+                url = `https://apis.data.go.kr/6260000/BusanBIMS/bitArrByArsno?serviceKey=${serviceKey}&arsno=${searchInput}`;
+            } else if (searchType === 'busno') {
+                url = `https://apis.data.go.kr/6260000/BusanBIMS/busInfo?serviceKey=${serviceKey}&lineno=${searchInput}`;
+            } else if (searchType === 'stopname') {
+                url = `https://apis.data.go.kr/6260000/BusanBIMS/busStopList?serviceKey=${serviceKey}&bstopnm=${encodeURIComponent(searchInput)}`;
+            }
+
+            fetch(url)
+                .then(response => response.text())
+                .then(str => (new window.DOMParser()).parseFromString(str, "text/xml"))
+                .then(data => {
+                    const items = data.getElementsByTagName('item');
+                    if (items.length === 0) {
+                        resultDiv.innerHTML = '<p>검색 결과가 없습니다.</p>';
+                        return;
+                    }
+
+                    resultDiv.innerHTML = '';
+
+                    Array.from(items).forEach(item => {
+                        let content = "";
+
+                        if (searchType === 'arsno') {
+                            const lineno = item.getElementsByTagName('lineno')[0]?.textContent || '-';
+                            const nodenm = item.getElementsByTagName('nodenm')[0]?.textContent || '-';
+                            const min1 = item.getElementsByTagName('min1')[0]?.textContent || '-';
+                            const station1 = item.getElementsByTagName('station1')[0]?.textContent || '-';
+                             const carno1 = item.getElementsByTagName('carno1')[0]?.textContent || '-';
+                            const formattedMin1 = min1 ? `<div class="time-circle">${min1}</div>분 후` : '-'; // 변경된 부분
+
+                            content = `
+                                <div class="icon-badge">정류소 도착 정보</div>
+                                <h3>버스 번호: ${lineno}</h3>
+                                <p>정류소: ${nodenm}</p>
+                                <div class="time-info">
+                                    ${formattedMin1}
+                                    <p>도착 예정</p>
+                                </div>
+                                <div class="station-info">
+                                    <span class="station-circle current-station">①</span>
+                                    ${generateStationCircles(station1)}
+                                    <span class="bus-icon">🚍</span>
+                                </div>
+                                 <p>차량 번호: ${carno1}</p>
+                            `;
+                        } else if (searchType === 'busno') {
+                            const lineno = item.getElementsByTagName('buslinenum')[0]?.textContent || '-';
+                            const bustype = item.getElementsByTagName('bustype')[0]?.textContent || '-';
+                            const startpoint = item.getElementsByTagName('startpoint')[0]?.textContent || '-';
+                            const endpoint = item.getElementsByTagName('endpoint')[0]?.textContent || '-';
+                             const firsttime = item.getElementsByTagName('firsttime')[0]?.textContent || '-';
+                            const endtime = item.getElementsByTagName('endtime')[0]?.textContent || '-';
+
+                            content = `
+                                 <div class="icon-badge">버스 기본 정보</div>
+                                <h3>버스 번호: ${lineno}</h3>
+                                <p>버스 종류: ${bustype}</p>
+                                <p>기점: ${startpoint}</p>
+                                <p>종점: ${endpoint}</p>
+                                <p>첫차: ${firsttime}</p>
+                                <p>막차: ${endtime}</p>
+                            `;
+                        } else if (searchType === 'stopname') {
+                            const bstopnm = item.getElementsByTagName('bstopnm')[0]?.textContent || '-';
+                            const arsno = item.getElementsByTagName('arsno')[0]?.textContent || '-';
+                            const gpsx = item.getElementsByTagName('gpsx')[0]?.textContent || '-';
+                            const gpsy = item.getElementsByTagName('gpsy')[0]?.textContent || '-';
+                            const stoptype = item.getElementsByTagName('stoptype')[0]?.textContent || '-';
+
+                            // 정류소 이름으로 검색시 버스 도착 정보도 함께 가져오기 위해 URL 변경
+                            url = `https://apis.data.go.kr/6260000/BusanBIMS/bitArrByArsno?serviceKey=${serviceKey}&arsno=${arsno}`;
+
+                            fetch(url)  // 변경된 URL로 다시 요청
+                                .then(response => response.text())
+                                .then(str => (new window.DOMParser()).parseFromString(str, "text/xml"))
+                                .then(arrivalData => {
+                                    const arrivalItems = arrivalData.getElementsByTagName('item');
+                                    let arrivalInfo = "";
+                                    if (arrivalItems.length > 0) {
+                                        Array.from(arrivalItems).forEach(arrivalItem => {
+                                            const lineno = arrivalItem.getElementsByTagName('lineno')[0]?.textContent || '-';
+                                            const min1 = arrivalItem.getElementsByTagName('min1')[0]?.textContent || '-';
+                                            const station1 = arrivalItem.getElementsByTagName('station1')[0]?.textContent || '-';
+                                             const carno1 = arrivalItem.getElementsByTagName('carno1')[0]?.textContent || '-';
+                                            const formattedMin1 = min1 ? `<div class="time-circle">${min1}</div>분 후` : '-'; // 변경된 부분
+                                            arrivalInfo += `
+                                                <div class="time-info">
+                                                    ${formattedMin1}
+                                                    <p><strong>${lineno}</strong>번 버스 도착 예정 (</p>
+                                                 </div>
+                                                <div class="station-info">
+                                                    <span class="station-circle current-station">①</span>
+                                                    ${generateStationCircles(station1)}
+                                                    <span class="bus-icon">🚍</span>
+                                                </div>
+                                                 <p>차량 번호: ${carno1})</p>
+                                            `;
+                                        });
+                                    } else {
+                                        arrivalInfo = "<p>도착 예정인 버스가 없습니다.</p>";
+                                    }
+
+                                    content = `
+                                        <div class="icon-badge">정류소 기본 정보</div>
+                                        <h3>정류소명: ${bstopnm}</h3>
+                                        <p>ARS번호: ${arsno}</p>
+                                        <p>GPS 위치: ${gpsx}, ${gpsy}</p>
+                                        <p>정류소 유형: ${stoptype}</p>
+                                        ${arrivalInfo}
+                                    `;
+
+                                    const card = document.createElement('div');
+                                    card.className = 'bus-card';
+                                    card.innerHTML = content;
+                                    resultDiv.appendChild(card);
+                                })
+                                .catch(error => {
+                                    console.error('Error fetching arrival data:', error);
+                                    resultDiv.innerHTML += '<p>도착 정보 조회에 실패했습니다.</p>';
+                                     const card = document.createElement('div');
+                                    card.className = 'bus-card';
+                                    card.innerHTML = content;
+                                    resultDiv.appendChild(card);
+                                });
+                            return;
+                        }
+
+                        const card = document.createElement('div');
+                        card.className = 'bus-card';
+                        card.innerHTML = content;
+                        resultDiv.appendChild(card);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching data:', error);
+                    resultDiv.innerHTML = '<p>오류가 발생했습니다. 다시 시도해주세요.</p>';
+                });
+        }
+
+        function generateStationCircles(stationCount) {
+            let circles = '';
+            for (let i = 1; i <= stationCount; i++) {
+                circles += `<span class="station-circle">${i + 1}</span>`;
+            }
+            return circles;
+        }
+    </script>
+</body>
+</html>
